@@ -1,5 +1,6 @@
 const mpr = (function(){
 
+  let start_btn = document.querySelector('#start_stop');
   let replay = document.querySelector('#replay');
   let o = document.querySelector('output');
   let dl = document.querySelector('#download');
@@ -13,7 +14,7 @@ const mpr = (function(){
   let cpos = c.getBoundingClientRect();
   let cx = c.getContext('2d');
   c.width = 640;
-  c.height = 400;
+  c.height = 360;
 
   let state = {};
   let paths = {};
@@ -136,21 +137,27 @@ const mpr = (function(){
     dl.setAttribute('download', 'paths.txt');
   }
 
+  let lastTime = undefined;
+  let sampleFreq = 100;
   const recordPath = e => {
     if (paint) {
-      let x = getxy(e).x;
-      let y = getxy(e).y;
-      recording.style.left = x + cpos.x + 10 + "px";
-      recording.style.top = y + cpos.y + 10 + "px";
-      if (oldx > 0 && oldy > 0) {
-        if (Math.abs(oldx-x) < threshold &&
-            Math.abs(oldy-y) < threshold) {
-          return false;
-        }
-      } 
-      paths[path].push(x/2|0,y/2|0);
-      paintline(x, y);
-      o.innerHTML = paths[path].length + ' new points';
+      if (lastTime && (e.timeStamp - lastTime > 1000/sampleFreq)) {  // records at 100 hz
+        lastTime = e.timeStamp;
+        let x = getxy(e).x;
+        let y = getxy(e).y;
+        recording.style.left = x + cpos.x + 10 + "px";
+        recording.style.top = y + cpos.y + 10 + "px";
+        if (oldx > 0 && oldy > 0) {
+          if (Math.abs(oldx-x) < threshold &&
+              Math.abs(oldy-y) < threshold) {
+            return false;
+          }
+        } 
+        paths[path].push(x/2|0,y/2|0);
+        paintline(x, y);
+        o.innerHTML = paths[path].length + ' new points';
+      }
+      else if (!lastTime) { lastTime = e.timeStamp; }
     }
   }
 
@@ -205,6 +212,34 @@ const updatepaths = (e) => {
   validatetext(pathdata.value);
 }
 
+const showRadioBtns = e => {
+  // randomly choose x, and y inside the canvas
+  if (start_btn.textContent === 'Start') {
+    let x1 = Math.floor(Math.random() * c.width);
+    let y1 = Math.floor(Math.random() * c.height);
+    let x2 = Math.floor(Math.random() * c.width);
+    let y2 = Math.floor(Math.random() * c.height);
+    cx.beginPath();
+    cx.strokeStyle = "black";
+    cx.lineCap = 'butt';
+    cx.lineWidth = 1;
+    cx.arc(x1, y1, 5, 0, 2 * Math.PI);
+    cx.stroke();
+    cx.closePath();
+    cx.beginPath();
+    cx.strokeStyle = "black";
+    cx.lineCap = 'butt';
+    cx.lineWidth = 1;
+    cx.arc(x2, y2, 5, 0, 2 * Math.PI);
+    cx.stroke();
+    cx.closePath();
+    start_btn.textContent = 'Stop';
+  } else {
+    cx.clearRect(0, 0, c.width, c.height);
+    start_btn.textContent = 'Start';
+  }
+}
+
 replay.addEventListener('click',e => {replayPath(0)});
 clear.addEventListener('click',e => {
   init();
@@ -213,6 +248,7 @@ limit.addEventListener('click',e => {
   threshold = e.target.checked ? 10 : 0
 });
 undo.addEventListener('click',undoLastPath);
+start_btn.addEventListener('click',showRadioBtns);
 c.addEventListener('mousedown',startPathRecording);
 c.addEventListener('mousemove',recordPath);
 pathdata.addEventListener('change', updatepaths);
